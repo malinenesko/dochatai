@@ -2,19 +2,19 @@ import { ChatPromptTemplate, PromptTemplate } from 'langchain/prompts'
 import OpenAI from 'openai/index'
 import { DocHandler } from './dochandler/dochandler'
 import { MilvusClientService } from './vectordb/milvusClient'
-import { ResStatus } from '@zilliz/milvus2-sdk-node'
+import { ChatInfo } from '../types'
 
-const CHAT_NAME = (process.env.MILVUS_COLLECTION_NAME ?? 'dochatai2') as string
+const COLLECTION_NAME = (process.env.MILVUS_COLLECTION_NAME ?? 'dochatai') as string
 
-const consumeDocuments = async () => {
+const consumeDocuments = async (chatInfo: ChatInfo) => {
   console.log('Running docHandler...')
-  await DocHandler.handleDocuments().then((result) => console.log(result))
+  await DocHandler.handleDocuments(chatInfo, COLLECTION_NAME).then((result) => console.log(result))
 }
 
 const initChat = async (): Promise<string> => {
-  const sessionId = await MilvusClientService.initCollection(CHAT_NAME)
+  const sessionId = await MilvusClientService.initCollection(COLLECTION_NAME)
   if (!sessionId) {
-    throw new Error(`Failed to initialize chat: ${CHAT_NAME}`)
+    throw new Error(`Failed to initialize chat: ${COLLECTION_NAME}`)
   }
   return sessionId
 }
@@ -44,6 +44,6 @@ const formatMessages = async () => {
 // connectToMilvus().then((result) => console.log(result))
 
 export const Chatter = {
-  consumeDocuments,
+  processDocuments: consumeDocuments,
   initChat,
 }

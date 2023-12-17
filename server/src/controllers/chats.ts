@@ -1,21 +1,12 @@
 import { Request, Response, NextFunction } from 'express'
 import axios, { AxiosResponse } from 'axios'
 import { Chatter } from '../service/chatter'
-
-type ChatMessage = {
-  userId: number
-  id: number
-  title: string
-  body: string
-}
-
-type ChatInfo = {
-  sessionId: string
-  chatName: string
-}
+import { ChatInfo } from '../types'
+import { randomInt, randomUUID } from 'crypto'
 
 declare module 'express-session' {
   interface SessionData {
+    chatSessionId?: string
     chats?: ChatInfo[]
   }
 }
@@ -43,6 +34,25 @@ const getChats = async (req: Request, res: Response, next: NextFunction) => {
 }
 
 /**
+ * Process documents.
+ *
+ */
+const processDocuments = async (req: Request, res: Response, next: NextFunction) => {
+  // TODO: Add automatic schema validation
+  const { chatId } = req.body
+  const chatInfo = req.session.chats?.find((chat) => chat.chatId === chatId)
+  if (!chatInfo) {
+    return res.status(404).json({
+      message: 'Chat not found with id: ' + chatId,
+    })
+  }
+  const result = await Chatter.processDocuments(chatInfo)
+  return res.status(200).json({
+    message: result,
+  })
+}
+
+/**
  * Creates a new chat in the system.
  *
  * @return The created chat information in JSON format.
@@ -51,15 +61,17 @@ const createChat = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { chatName } = req.body
     const sessionId = await Chatter.initChat()
+    const chatId = randomUUID()
     const chatInfo: ChatInfo = {
-      sessionId,
+      chatId,
       chatName,
     }
+    req.session.chatSessionId = sessionId
     if (!req.session.chats) {
       req.session.chats = []
     }
     const allChats = req.session.chats
-    const existingChat = allChats?.find((chat) => chat.sessionId === sessionId && chat.chatName === chatName)
+    const existingChat = allChats?.find((chat) => chat.chatId === chatId)
     if (!existingChat) {
       allChats?.push(chatInfo)
     }
@@ -111,4 +123,4 @@ const deleteChat = async (req: Request, res: Response, next: NextFunction) => {
   })
 }
 
-export default { getChats, getChat, updateChat, deleteChat, createChat }
+export default { getChats, getChat, updateChat, deleteChat, createChat, processDocuments }

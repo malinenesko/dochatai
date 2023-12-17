@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build": "rm -rf ./build/* && tsc",
-    "clean": "rimraf ./build",
+    "clean": "rm -rf ./build/*",
     "dev": "nodemon --inspect src/index.ts",
     "devi": "nodemon --inspect src/index.ts",
     "devp": "tsc && node build/",

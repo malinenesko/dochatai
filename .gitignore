@@ -4,7 +4,7 @@
 server/node_modules
 
 # testing
-server/coverage
+server/coverage/
 
 # production
 server/build

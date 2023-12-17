@@ -5,8 +5,9 @@ import { OpenAIEmbeddings } from 'langchain/embeddings/openai'
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter'
 import { MilvusClientService } from '../vectordb/milvusClient'
 import { InsertReq, ResStatus, RowData } from '@zilliz/milvus2-sdk-node'
+import { ChatInfo } from '@/src/types'
 
-const handleDocuments = async (): Promise<boolean> => {
+const handleDocuments = async (chatInfo: ChatInfo, collectionName: string): Promise<boolean> => {
   const filePath = process.env.NODE_ENV === 'production' ? '/tmp' : 'tmp'
   const openAIApiKey = process.env.OPENAI_API_KEY
   console.log('Env variables', process.env.MILVUS_URL, process.env.MILVUS_TOKEN, filePath, openAIApiKey)
@@ -20,15 +21,16 @@ const handleDocuments = async (): Promise<boolean> => {
     chunkOverlap: Number(DOCUMENT_TEXT_CHUNK_OVERLAP),
   }).splitDocuments(documents)
 
-  // console.log('Split docs: ', splitDocuments)
+  console.log('Split docs: ', splitDocuments.length)
 
   const embeddings = new OpenAIEmbeddings({ openAIApiKey })
   const embeddedDocuments = await embeddings.embedDocuments(splitDocuments.map((entry) => entry.pageContent))
-  // console.log('EmbeddedDocs: ', embeddedDocuments)
+  console.log('EmbeddedDocs: ', embeddedDocuments.length)
 
   const rowData: RowData[] = embeddedDocuments.map((entry, index) => {
     return {
-      chatName: 'dochatai123',
+      chatName: chatInfo.chatName,
+      source: documents[0].metadata.source,
       text: splitDocuments[index].pageContent,
       vector: entry,
     }
@@ -36,21 +38,9 @@ const handleDocuments = async (): Promise<boolean> => {
 
   console.log('RowData: ', rowData.length)
   console.log('RowData 0: ', rowData[0])
-  // console.log(Object.keys(rowData[0]))
 
   const milvusClient = await MilvusClientService.getMilvusClient()
-  // console.log('Collections: ', await milvusClient.listCollections())
-  const collectionSchema = MilvusClientService.getCreateCollectionRequest('dochatai2') //`dochat-collection-${new Date().getTime()}`) // TODO: Generate session name?
-  // console.log(collectionSchema)
-  const createResult: ResStatus = await milvusClient.createCollection(collectionSchema)
-  console.log(createResult)
-
-  // const describeResult = await milvusClient.describeCollection({
-  //   collection_name: collectionSchema.collection_name,
-  // })
-  // console.log(describeResult)
-
-  const upsertReq: InsertReq = { collection_name: collectionSchema.collection_name, data: rowData }
+  const upsertReq: InsertReq = { collection_name: collectionName, data: rowData }
   const result = await milvusClient.insert(upsertReq)
   console.log(result)
   // return result.status.code === 0
