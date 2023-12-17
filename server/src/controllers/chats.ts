@@ -47,8 +47,9 @@ const processDocuments = async (req: Request, res: Response, next: NextFunction)
     })
   }
   const result = await Chatter.processDocuments(chatInfo)
+  console.log('Documents process result: ', result)
   return res.status(200).json({
-    message: result,
+    processedDocuments: result,
   })
 }
 

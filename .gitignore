@@ -4,10 +4,14 @@
 server/node_modules
 
 # testing
-server/coverage/
+server/coverage
+
+#testdata
+server/tmp
 
 # production
 server/build
+
 
 # misc
 .DS_Store

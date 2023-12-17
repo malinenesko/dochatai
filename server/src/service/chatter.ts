@@ -6,9 +6,9 @@ import { ChatInfo } from '../types'
 
 const COLLECTION_NAME = (process.env.MILVUS_COLLECTION_NAME ?? 'dochatai') as string
 
-const consumeDocuments = async (chatInfo: ChatInfo) => {
+const consumeDocuments = async (chatInfo: ChatInfo): Promise<number> => {
   console.log('Running docHandler...')
-  await DocHandler.handleDocuments(chatInfo, COLLECTION_NAME).then((result) => console.log(result))
+  return await DocHandler.processUploadedDocuments(chatInfo, COLLECTION_NAME)
 }
 
 const initChat = async (): Promise<string> => {
