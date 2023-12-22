@@ -102,12 +102,19 @@ const chatQuestion = async (req: Request, res: Response, next: NextFunction) => 
       message: 'Missing chatId or question',
     })
   }
-  const chatInfo = getCurrentChat(chatId, req.session.chats)
-  const result = await Chatter.chatQuestion(chatInfo, question)
+  try {
+    const chatInfo = getCurrentChat(chatId, req.session.chats)
+    const result = await Chatter.chatQuestion(chatInfo, question)
 
-  return res.status(200).json({
-    chat: result,
-  })
+    return res.status(200).json({
+      chat: result,
+    })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({
+      error: 'Failed to send the question',
+    })
+  }
 }
 
 // updating a chat

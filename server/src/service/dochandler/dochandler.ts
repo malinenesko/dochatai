@@ -1,12 +1,13 @@
-import { DOCUMENT_TEXT_CHUNK_OVERLAP, DOCUMENT_TEXT_CHUNK_SIZE } from '../../constants'
+import { DOCUMENT_TEXT_CHUNK_OVERLAP, DOCUMENT_TEXT_CHUNK_SIZE, RUNTIME } from '../../constants'
 import { DirectoryLoader } from 'langchain/document_loaders/fs/directory'
 import { Document } from 'langchain/document'
 import { PDFLoader } from 'langchain/document_loaders/fs/pdf'
 import { OpenAIEmbeddings } from 'langchain/embeddings/openai'
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter'
 import { MilvusClientService } from '../vectordb/milvusClient'
-import { InsertReq, MilvusClient, ResStatus, RowData } from '@zilliz/milvus2-sdk-node'
+import { InsertReq, MetricType, MilvusClient, ResStatus, RowData } from '@zilliz/milvus2-sdk-node'
 import { ChatInfo } from '@/src/types'
+import { Milvus } from 'langchain/vectorstores/milvus'
 
 const openAIApiKey = process.env.OPENAI_API_KEY
 let milvusClientInstance: MilvusClient
@@ -22,29 +23,62 @@ const processUploadedDocuments = async (chatInfo: ChatInfo, collectionName: stri
     return 0
   }
 
-  const result = await Promise.all(documents.map(async (doc) => await processDocument(doc, chatInfo, collectionName)))
+  // processDocuments(documents, chatInfo, collectionName)
+  // return 2
+  const milvusClient = await MilvusClientService.getMilvusClient()
 
-  // const result = await documents.every(async (doc) => await processDocument(doc, chatInfo, collectionName))
-
+  const result = await Promise.all(
+    documents.map(async (doc) => await processDocument(doc, chatInfo, collectionName, milvusClient)),
+  )
+  milvusClient.closeConnection()
   return result.length
 }
 
-const processDocument = async (document: Document, chatInfo: ChatInfo, collectionName: string) => {
+const processDocuments = async (documents: Document[], chatInfo: ChatInfo, collectionName: string) => {
+  const runtime = RUNTIME()
+  const dbStore = await Milvus.fromExistingCollection(new OpenAIEmbeddings(), {
+    collectionName: 'dochatai',
+    // url: MILVUS_URL,
+    clientConfig: {
+      address: runtime.MILVUS_URL,
+      token: runtime.MILVUS_TOKEN,
+    },
+  })
+
+  dbStore.indexCreateParams.metric_type = MetricType.IP
+  await dbStore.addDocuments(documents)
+
+  // const res = await Milvus.fromDocuments(documents, new OpenAIEmbeddings(), {
+  //   collectionName: 'dochatai2',
+  //   clientConfig: {
+  //     address: runtime.MILVUS_URL,
+  //     token: runtime.MILVUS_TOKEN,
+  //   },
+  // })
+  // console.log('Document stored: ', res.collectionName, res.indexSearchParams)
+}
+
+const processDocument = async (
+  document: Document,
+  chatInfo: ChatInfo,
+  collectionName: string,
+  milvusClient: MilvusClient,
+) => {
   const splitDocumentParts = await new RecursiveCharacterTextSplitter({
     chunkSize: Number(DOCUMENT_TEXT_CHUNK_SIZE),
     chunkOverlap: Number(DOCUMENT_TEXT_CHUNK_OVERLAP),
   }).splitDocuments([document])
-  console.log('Split document parts: ', splitDocumentParts.length)
+  // console.log('Split document parts: ', splitDocumentParts.length)
 
   const embeddings = new OpenAIEmbeddings({ openAIApiKey })
   const embeddedDocuments = await embeddings.embedDocuments(splitDocumentParts.map((entry) => entry.pageContent))
-  console.log('EmbeddedDocs: ', embeddedDocuments.length)
+  // console.log('EmbeddedDocs: ', embeddedDocuments.length)
 
   const rowData: RowData[] = embeddedDocuments.map((entry, index) => {
     return {
       chatId: chatInfo.chatId,
       source: document.metadata.source,
-      text: splitDocumentParts[index].pageContent,
+      pageContent: splitDocumentParts[index].pageContent,
       vector: entry,
     }
   })
@@ -52,7 +86,6 @@ const processDocument = async (document: Document, chatInfo: ChatInfo, collectio
   // console.log('RowData: ', rowData.length)
   // console.log('RowData 0: ', rowData[0])
 
-  const milvusClient = await getClient()
   const insertReq: InsertReq = { collection_name: collectionName, data: rowData }
   const result = await milvusClient.insert(insertReq)
   console.log(document.metadata.source, result.status.error_code)

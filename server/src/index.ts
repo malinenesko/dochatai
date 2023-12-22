@@ -7,8 +7,10 @@ import * as swaggerDocument from './swagger.json'
 import morgan from 'morgan'
 import routes from './routes/chats'
 import MemcachedStore from 'connect-memcached'
+import { RUNTIME } from './constants'
 
 require('dotenv').config()
+const runtime = RUNTIME()
 
 const memcached = MemcachedStore(session)
 const memcachedInstance = new memcached({

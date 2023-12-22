@@ -8,6 +8,7 @@ server/coverage
 
 #testdata
 server/tmp
+test_material/
 
 # production
 server/build

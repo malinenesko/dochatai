@@ -3,6 +3,7 @@ import OpenAI from 'openai/index'
 import { DocHandler } from './dochandler/dochandler'
 import { MilvusClientService } from './vectordb/milvusClient'
 import { ChatInfo } from '../types'
+import { Search } from './vectordb/search'
 
 const COLLECTION_NAME = (process.env.MILVUS_COLLECTION_NAME ?? 'dochatai') as string
 
@@ -20,7 +21,7 @@ const initChat = async (): Promise<string> => {
 }
 
 const chatQuestion = async (chat: ChatInfo, question: string): Promise<ChatInfo> => {
-  const answer = 'Answer: Not implemented'
+  const answer = await Search.search(COLLECTION_NAME, chat, question)
   if (!chat.messages) {
     chat.messages = []
   }
