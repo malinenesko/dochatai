@@ -9,14 +9,8 @@ import { error } from 'console'
 
 const CALL_TIMEOUT = (process.env.MILVUS_TIMEOUT ?? 30000) as number
 
-// const connectToMilvus = async (): Promise<ShowCollectionsResponse> => {
-//   // Connect to the cluster
-//   const client = new MilvusClient({ address, token })
-//   return await client.listCollections()
-// }
-
 const getMilvusClient = async (): Promise<MilvusClient> => {
-  const address = process.env.MILVUS_URL ?? '' // 'https://in03-6e03655cf0329d8.api.gcp-us-west1.zillizcloud.com'
+  const address = process.env.MILVUS_URL ?? ''
   const token = process.env.MILVUS_TOKEN
   return new MilvusClient({ address, token })
 }
@@ -60,4 +54,4 @@ const initCollection = async (collectionName: string): Promise<string | undefine
   return descriptionResult.collectionID
 }
 
-export const MilvusClientService = { getMilvusClient, getCreateCollectionRequest, initCollection }
+export const MilvusClientService = { getMilvusClient, initCollection }

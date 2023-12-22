@@ -64,6 +64,7 @@
     "jest-cucumber": "^3.0.1",
     "langchain": "^0.0.200",
     "morgan": "^1.10.0",
+    "multiparty": "^4.2.3",
     "openai": "^4.20.1",
     "pdf-parse": "^1.1.1",
     "swagger-ui": "^5.10.3",

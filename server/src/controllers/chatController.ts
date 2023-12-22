@@ -29,7 +29,7 @@ const getChats = async (req: Request, res: Response, next: NextFunction) => {
   // let chats: [Chat] = result.data
   // await Chatter.consumeDocuments()
   return res.status(200).json({
-    message: req.session.chats,
+    chats: req.session.chats,
   })
 }
 
@@ -66,12 +66,14 @@ const createChat = async (req: Request, res: Response, next: NextFunction) => {
     const chatInfo: ChatInfo = {
       chatId,
       chatName,
+      messages: [],
     }
     req.session.chatSessionId = sessionId
     if (!req.session.chats) {
       req.session.chats = []
     }
     const allChats = req.session.chats
+    // Need for this check?
     const existingChat = allChats?.find((chat) => chat.chatId === chatId)
     if (!existingChat) {
       allChats?.push(chatInfo)
@@ -85,12 +87,26 @@ const createChat = async (req: Request, res: Response, next: NextFunction) => {
   }
 }
 
-const getChat = async (req: Request, res: Response, next: NextFunction) => {
-  const { chatId } = req.params
-  const result: AxiosResponse = await axios.get(`https://jsonplaceholder.typicode.com/chats/`)
-  const chat = result.data
+const getCurrentChat = (chatId: string, chats?: ChatInfo[]): ChatInfo => {
+  const chatInfo = chats?.find((chat) => chat.chatId === chatId)
+  if (!chatInfo) {
+    throw new Error('Chat not found with id: ' + chatId)
+  }
+  return chatInfo
+}
+
+const chatQuestion = async (req: Request, res: Response, next: NextFunction) => {
+  const { chatId, question } = req.body
+  if (!chatId || !question) {
+    return res.status(400).json({
+      message: 'Missing chatId or question',
+    })
+  }
+  const chatInfo = getCurrentChat(chatId, req.session.chats)
+  const result = await Chatter.chatQuestion(chatInfo, question)
+
   return res.status(200).json({
-    message: chat,
+    chat: result,
   })
 }
 
@@ -124,4 +140,4 @@ const deleteChat = async (req: Request, res: Response, next: NextFunction) => {
   })
 }
 
-export default { getChats, getChat, updateChat, deleteChat, createChat, processDocuments }
+export default { getChats, createChat, processDocuments, chatQuestion }

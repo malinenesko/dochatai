@@ -19,6 +19,15 @@ const initChat = async (): Promise<string> => {
   return sessionId
 }
 
+const chatQuestion = async (chat: ChatInfo, question: string): Promise<ChatInfo> => {
+  const answer = 'Answer: Not implemented'
+  if (!chat.messages) {
+    chat.messages = []
+  }
+  chat.messages.push({ question, answer })
+  return chat
+}
+
 const template = 'You are a helpful assistant that translates {input_language} into {output_language}.'
 const humanTemplate = '{text}'
 
@@ -46,4 +55,5 @@ const formatMessages = async () => {
 export const Chatter = {
   processDocuments: consumeDocuments,
   initChat,
+  chatQuestion,
 }
