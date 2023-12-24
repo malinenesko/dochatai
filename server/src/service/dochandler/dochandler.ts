@@ -5,7 +5,7 @@ import { PDFLoader } from 'langchain/document_loaders/fs/pdf'
 import { OpenAIEmbeddings } from 'langchain/embeddings/openai'
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter'
 import { MilvusClientService } from '../vectordb/milvusClient'
-import { InsertReq, MetricType, MilvusClient, ResStatus, RowData } from '@zilliz/milvus2-sdk-node'
+import { InsertReq, MetricType, MilvusClient, ResStatus, RowData, sleep } from '@zilliz/milvus2-sdk-node'
 import { ChatInfo } from '@/src/types'
 import { Milvus } from 'langchain/vectorstores/milvus'
 
@@ -28,7 +28,10 @@ const processUploadedDocuments = async (chatInfo: ChatInfo, collectionName: stri
   const milvusClient = await MilvusClientService.getMilvusClient()
 
   const result = await Promise.all(
-    documents.map(async (doc) => await processDocument(doc, chatInfo, collectionName, milvusClient)),
+    documents.map(async (doc) => {
+      await sleep(2000) // Wait a little bit for Milvus to index
+      return await processDocument(doc, chatInfo, collectionName, milvusClient)
+    }),
   )
   milvusClient.closeConnection()
   return result.length
@@ -78,13 +81,15 @@ const processDocument = async (
     return {
       chatId: chatInfo.chatId,
       source: document.metadata.source,
+      author: document.metadata.pdf?.info?.Author,
+      title: document.metadata.pdf?.info?.Title ?? document.metadata.source,
       pageContent: splitDocumentParts[index].pageContent,
       vector: entry,
     }
   })
 
   // console.log('RowData: ', rowData.length)
-  // console.log('RowData 0: ', rowData[0])
+  console.log('RowData 0: ', rowData[0])
 
   const insertReq: InsertReq = { collection_name: collectionName, data: rowData }
   const result = await milvusClient.insert(insertReq)

@@ -18,6 +18,7 @@ import { MetricType } from '@zilliz/milvus2-sdk-node'
 import { ChatInfo, ChatMessage } from '@/src/types'
 import { ChatMessageHistory } from 'langchain/stores/message/in_memory'
 import { BufferMemory, BufferWindowMemory, ConversationSummaryMemory } from 'langchain/memory'
+import path from 'path'
 
 const search = async (collectionName: string, chat: ChatInfo, question: string): Promise<string> => {
   // { openAIApiKey: OPENAI_API_KEY }
@@ -35,7 +36,9 @@ const search = async (collectionName: string, chat: ChatInfo, question: string):
   dbStore.fields.push('chatId', 'source', 'pageContent')
   dbStore.indexCreateParams.metric_type = MetricType.IP
   // , and if you don't know the answer, say "Beats me, bro
-  const PROMPT_TEMPLATE = `Answer the given question based on the context and chat history!".:
+  // what kind of disruptions can be caused by digital transformation
+  const PROMPT_TEMPLATE = `Answer the given question based on the context and chat history, using descriptive language and specific details. 
+   List the information and all the sources available from the context metadata field.:
     ChatId: {chatId}
     System: {context}
     Chat history: {chat_history}
@@ -54,11 +57,38 @@ const search = async (collectionName: string, chat: ChatInfo, question: string):
   const model = new ChatOpenAI({})
   // const prompt = ChatPromptTemplate.fromMessages(messages)
   const prompt = new PromptTemplate({
-    inputVariables: ['context', 'question', 'chatId', 'chat_history'],
+    inputVariables: ['context', 'question', 'chatId', 'chat_history', 'source'],
     template: PROMPT_TEMPLATE,
   })
 
-  const formatDocs = (docs: Document[]) => docs.map((doc) => doc.pageContent)
+  const isURL = (source: string): boolean => {
+    const urlPattern = /^(https?:\/\/)?([\w.-]+)\.([a-z]{2,})(:\d{1,5})?\/?(\/[^\s]*)?$/i
+    return urlPattern.test(source)
+  }
+
+  const getDocumentSource = (source: string) => {
+    if (isURL(source)) {
+      return source
+    }
+    return path.basename(source)
+  }
+
+  const formatDocs = (docs: Document[]) =>
+    docs
+      .map((doc) =>
+        JSON.stringify({
+          pageContent: doc.pageContent,
+          source: getDocumentSource(doc.metadata.source),
+          chatId: doc.metadata.chatId,
+        }),
+      )
+      .join('\n')
+
+  const listSourceDocs = (docs: Document[]) =>
+    docs
+      .map((doc) => getDocumentSource(doc.metadata.source))
+      .filter((value, index, self) => self.indexOf(value) === index)
+      .join('\n')
 
   const createChatMessageHistory = (messages: ChatMessage[]) => {
     const history = new ChatMessageHistory()
@@ -126,19 +156,23 @@ const search = async (collectionName: string, chat: ChatInfo, question: string):
   // const chatHistory = ConversationalRetrievalQAChain.getChatHistoryString(await history.getMessages())
   // memory,
   // metadata: { chatId: chat.chatId },
+  const documents = await retriever.getRelevantDocuments(question)
+  const formattedContext = formatDocs(documents)
   const chain = ConversationalRetrievalQAChain.fromLLM(model, retriever, {
     verbose: true,
   })
   const res = await chain.call({
     question,
     chatId: chat.chatId,
-    context: formatDocs(await retriever.getRelevantDocuments(question)),
+    context: formattedContext,
     chat_history: chatHistoryAsString,
   })
 
   console.log(res)
   dbStore.client.closeConnection()
-  return res.text
+
+  const finalResult = res.text + '\n' + 'Source documents: ' + listSourceDocs(documents)
+  return finalResult
 
   const chain2 = RunnableSequence.from([
     // {
