@@ -8,6 +8,7 @@ import { MilvusClientService } from '../vectordb/milvusClient'
 import { InsertReq, MetricType, MilvusClient, ResStatus, RowData, sleep } from '@zilliz/milvus2-sdk-node'
 import { ChatInfo } from '@/src/types'
 import { Milvus } from 'langchain/vectorstores/milvus'
+import { SearchUtils } from '../vectordb/util'
 
 const openAIApiKey = process.env.OPENAI_API_KEY
 let milvusClientInstance: MilvusClient
@@ -29,7 +30,7 @@ const processUploadedDocuments = async (chatInfo: ChatInfo, collectionName: stri
 
   const result = await Promise.all(
     documents.map(async (doc) => {
-      await sleep(2000) // Wait a little bit for Milvus to index
+      await sleep(500) // Wait a little bit for Milvus to index
       return await processDocument(doc, chatInfo, collectionName, milvusClient)
     }),
   )
@@ -80,7 +81,7 @@ const processDocument = async (
   const rowData: RowData[] = embeddedDocuments.map((entry, index) => {
     return {
       chatId: chatInfo.chatId,
-      source: document.metadata.source,
+      source: SearchUtils.getDocumentSource(document.metadata.source),
       author: document.metadata.pdf?.info?.Author,
       title: document.metadata.pdf?.info?.Title ?? document.metadata.source,
       pageContent: splitDocumentParts[index].pageContent,

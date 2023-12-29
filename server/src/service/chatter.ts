@@ -1,13 +1,14 @@
-import { ChatPromptTemplate, PromptTemplate } from 'langchain/prompts'
-import OpenAI from 'openai/index'
+import { ChatInfo } from '../types'
+import { SearchType } from '../types/SearchType'
 import { DocHandler } from './dochandler/dochandler'
 import { MilvusClientService } from './vectordb/milvusClient'
-import { ChatInfo } from '../types'
-import { Search } from './vectordb/search'
+import { SearchPredict } from './vectordb/searchPredict'
+import { SearchQAChainSimple } from './vectordb/searchQAChainSimple'
+import { SearchRunnableSequence } from './vectordb/searchRunnableSequence'
 
 const COLLECTION_NAME = (process.env.MILVUS_COLLECTION_NAME ?? 'dochatai') as string
 
-const consumeDocuments = async (chatInfo: ChatInfo): Promise<number> => {
+const processDocuments = async (chatInfo: ChatInfo): Promise<number> => {
   console.log('Running docHandler...')
   return await DocHandler.processUploadedDocuments(chatInfo, COLLECTION_NAME)
 }
@@ -20,8 +21,38 @@ const initChat = async (): Promise<string> => {
   return sessionId
 }
 
-const chatQuestion = async (chat: ChatInfo, question: string): Promise<ChatInfo> => {
-  const answer = await Search.search(COLLECTION_NAME, chat, question)
+/**
+ * Executes a chat search function based on the provided parameters. The search type determines the type of search
+ * function to be used. If no search type is provided, the default search type is
+ * SearchType.QACHAIN. The function searches for an answer using the appropriate search
+ * function based on the search type, and adds the question and answer to the chat object's
+ * messages array. Finally, the updated chat object is returned.
+ *
+ * @param {ChatInfo} chat - The chat object containing the conversation history.
+ * @param {string} question - The question to be searched.
+ * @param {SearchType} searchType - The type of search to be performed. Default is
+ *                                 SearchType.QACHAIN.
+ * @return {Promise<ChatInfo>} - A promise that resolves to the updated chat object.
+ */
+const executeQuestion = async (
+  chat: ChatInfo,
+  question: string,
+  searchType: SearchType = SearchType.QACHAIN,
+): Promise<ChatInfo> => {
+  let searchFn = null
+  switch (searchType) {
+    case SearchType.PREDICT:
+      searchFn = SearchPredict.search
+      break
+    case SearchType.SEQUENCE:
+      searchFn = SearchRunnableSequence.search
+      break
+    case SearchType.QACHAINSIMPLE:
+    case SearchType.QACHAIN:
+    default:
+      searchFn = SearchQAChainSimple.search
+  }
+  const answer = await searchFn(COLLECTION_NAME, chat, question)
   if (!chat.messages) {
     chat.messages = []
   }
@@ -29,32 +60,8 @@ const chatQuestion = async (chat: ChatInfo, question: string): Promise<ChatInfo>
   return chat
 }
 
-const template = 'You are a helpful assistant that translates {input_language} into {output_language}.'
-const humanTemplate = '{text}'
-
-const chatPrompt = ChatPromptTemplate.fromMessages([
-  ['system', template],
-  ['human', humanTemplate],
-])
-
-const formatMessages = async () => {
-  const formattedChatPrompt = await chatPrompt.formatMessages({
-    input_language: 'English',
-    output_language: 'French',
-    text: 'I love programming.',
-  })
-
-  return formattedChatPrompt
-}
-
-// formatMessages().then((result) => {
-//   console.log(result)
-// })
-
-// connectToMilvus().then((result) => console.log(result))
-
 export const Chatter = {
-  processDocuments: consumeDocuments,
+  processDocuments,
   initChat,
-  chatQuestion,
+  executeQuestion,
 }

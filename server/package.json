@@ -63,6 +63,7 @@
     "express": "^4.18.2",
     "express-session": "^1.17.3",
     "express-validator": "^7.0.1",
+    "hnswlib-node": "^1.4.2",
     "jest-cucumber": "^3.0.1",
     "langchain": "^0.0.200",
     "morgan": "^1.10.0",

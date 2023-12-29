@@ -3,6 +3,7 @@ import axios, { AxiosResponse } from 'axios'
 import { Chatter } from '../service/chatter'
 import { ChatInfo } from '../types'
 import { randomInt, randomUUID } from 'crypto'
+import { SearchType } from '../types/SearchType'
 
 declare module 'express-session' {
   interface SessionData {
@@ -96,7 +97,7 @@ const getCurrentChat = (chatId: string, chats?: ChatInfo[]): ChatInfo => {
 }
 
 const chatQuestion = async (req: Request, res: Response, next: NextFunction) => {
-  const { chatId, question } = req.body
+  const { chatId, question, searchType } = req.body
   if (!chatId || !question) {
     return res.status(400).json({
       message: 'Missing chatId or question',
@@ -104,7 +105,7 @@ const chatQuestion = async (req: Request, res: Response, next: NextFunction) => 
   }
   try {
     const chatInfo = getCurrentChat(chatId, req.session.chats)
-    const result = await Chatter.chatQuestion(chatInfo, question)
+    const result = await Chatter.executeQuestion(chatInfo, question, searchType as SearchType)
 
     return res.status(200).json({
       chat: result,
