@@ -79,11 +79,12 @@ const processDocument = async (
   // console.log('EmbeddedDocs: ', embeddedDocuments.length)
 
   const rowData: RowData[] = embeddedDocuments.map((entry, index) => {
+    const documentSource = SearchUtils.getDocumentSource(document.metadata.source)
     return {
       chatId: chatInfo.chatId,
-      source: SearchUtils.getDocumentSource(document.metadata.source),
+      source: documentSource,
       author: document.metadata.pdf?.info?.Author,
-      title: document.metadata.pdf?.info?.Title ?? document.metadata.source,
+      title: document.metadata.pdf?.info?.Title ?? documentSource,
       pageContent: splitDocumentParts[index].pageContent,
       vector: entry,
     }

@@ -8,6 +8,8 @@ import {
   ShowCollectionsResponse,
 } from '@zilliz/milvus2-sdk-node'
 import { error } from 'console'
+import { OpenAIEmbeddings } from 'langchain/embeddings/openai'
+import { Milvus } from 'langchain/vectorstores/milvus'
 
 // const CALL_TIMEOUT = (process.env.MILVUS_TIMEOUT ?? 30000) as number
 
@@ -59,4 +61,22 @@ const initCollection = async (collectionName: string): Promise<string | undefine
   return descriptionResult.collectionID
 }
 
-export const MilvusClientService = { getMilvusClient, initCollection }
+const openClientOnCollection = async (): Promise<Milvus> => {
+  const runtime = RUNTIME()
+  const milvusClient = await Milvus.fromExistingCollection(new OpenAIEmbeddings(), {
+    collectionName: runtime.MILVUS_COLLECTION_NAME,
+    textField: 'pageContent',
+    vectorField: 'vector',
+    clientConfig: {
+      address: runtime.MILVUS_URL,
+      token: runtime.MILVUS_TOKEN,
+    },
+  })
+  milvusClient.fields.push('chatId', 'source', 'pageContent', 'author', 'title')
+  milvusClient.indexCreateParams.metric_type = MetricType.IP
+  milvusClient.indexSearchParams = JSON.stringify({ ef: 256 })
+
+  return milvusClient
+}
+
+export const MilvusClientService = { getMilvusClient, initCollection, openClientOnCollection }
