@@ -16,8 +16,8 @@
 
     {
       "cwd": "${workspaceFolder}/server",
-      "command": "npm run dev",
-      "name": "Run npm dev",
+      "command": "npm run dev:debug",
+      "name": "Run debug",
       "request": "launch",
       "type": "node-terminal"
     },

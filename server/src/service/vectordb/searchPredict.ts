@@ -12,11 +12,11 @@ import { StringOutputParser } from 'langchain/schema/output_parser'
 import { ConversationalRetrievalQAChain } from 'langchain/chains'
 import { RUNTIME } from '../../constants'
 import { MetricType } from '@zilliz/milvus2-sdk-node'
-import { ChatInfo, ChatMessage } from '@/src/types'
+import { ChatAnswer, ChatInfo, ChatMessage } from '@/src/types'
 import { BufferMemory, ConversationSummaryMemory } from 'langchain/memory'
 import { SearchUtils } from './util'
 
-const search = async (collectionName: string, chat: ChatInfo, question: string): Promise<string> => {
+const search = async (collectionName: string, chat: ChatInfo, question: string): Promise<ChatAnswer> => {
   // { openAIApiKey: OPENAI_API_KEY }
   const runtime = RUNTIME()
   const dbStore = await Milvus.fromExistingCollection(new OpenAIEmbeddings(), {
@@ -37,7 +37,7 @@ const search = async (collectionName: string, chat: ChatInfo, question: string):
    List the information and all the sources available from the context metadata field.:
     ChatId: {chatId}
     System: {context}
-    Chat history: {chatHistory}
+    Chat history: {chat_history}
     Human: {question}
     AI:`
 
@@ -53,7 +53,7 @@ const search = async (collectionName: string, chat: ChatInfo, question: string):
   const model = new ChatOpenAI({})
   const prompt1 = ChatPromptTemplate.fromMessages(messages)
   const prompt = new PromptTemplate({
-    inputVariables: ['context', 'question', 'chatId', 'chatHistory', 'source'],
+    inputVariables: ['context', 'question', 'chatId', 'chat_history', 'source'],
     template: PROMPT_TEMPLATE,
   })
 
@@ -111,14 +111,14 @@ const search = async (collectionName: string, chat: ChatInfo, question: string):
     question,
     chatId: chat.chatId,
     context: formattedContext,
-    chatHistory: chatHistoryAsString,
+    chat_history: chatHistoryAsString,
   })
 
   console.log(res)
   dbStore.client.closeConnection()
 
   const finalResult = res.text + '\n' + 'Source documents: ' + SearchUtils.listSourceDocs(documents)
-  return finalResult
+  return { answerMsg: res.text, sourceDocuments: SearchUtils.listSourceDocs(documents) }
 
   const chain2 = RunnableSequence.from([
     // {
@@ -164,7 +164,7 @@ const search = async (collectionName: string, chat: ChatInfo, question: string):
   console.log(result)
 
   dbStore.client.closeConnection()
-  return result
+  // return result
 }
 
 export const SearchPredict = { search }

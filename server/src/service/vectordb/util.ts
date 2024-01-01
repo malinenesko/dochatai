@@ -40,7 +40,7 @@ const createChatMessageHistory = (messages: ChatMessage[], maxLimit: number) => 
 
   messages?.slice(-maxLimit).forEach((message) => {
     history.addUserMessage(message.question)
-    history.addAIChatMessage(message.answer)
+    history.addAIChatMessage(message.answer.answerMsg ?? '')
   })
 
   return history

@@ -5,13 +5,13 @@ import { PromptTemplate } from 'langchain/prompts'
 import { RunnableSequence, RunnablePassthrough } from 'langchain/schema/runnable'
 import { StringOutputParser } from 'langchain/schema/output_parser'
 import { formatDocumentsAsString } from 'langchain/util/document'
-import { ChatInfo } from '@/src/types'
+import { ChatAnswer, ChatInfo } from '@/src/types'
 import { MetricType } from '@zilliz/milvus2-sdk-node'
 import { Milvus } from 'langchain/vectorstores/milvus'
 import { RUNTIME } from '../../constants'
 import { SearchUtils } from './util'
 
-export const search = async (collectionName: string, chat: ChatInfo, question: string): Promise<string> => {
+export const search = async (collectionName: string, chat: ChatInfo, question: string): Promise<ChatAnswer> => {
   const model = new ChatOpenAI({ temperature: 0 })
   const runtime = RUNTIME()
   const dbStore = await Milvus.fromExistingCollection(new OpenAIEmbeddings(), {
@@ -59,5 +59,5 @@ Question: {question}`)
   })
 
   console.log(result)
-  return result
+  return { answerMsg: result, sourceDocuments: '' }
 }

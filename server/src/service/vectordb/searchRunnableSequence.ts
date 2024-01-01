@@ -6,10 +6,10 @@ import { ChatOpenAI } from 'langchain/chat_models/openai'
 import { StringOutputParser } from 'langchain/schema/output_parser'
 import { RUNTIME } from '../../constants'
 import { MetricType } from '@zilliz/milvus2-sdk-node'
-import { ChatInfo } from '@/src/types'
+import { ChatAnswer, ChatInfo } from '@/src/types'
 import { SearchUtils } from './util'
 
-const search = async (collectionName: string, chat: ChatInfo, question: string): Promise<string> => {
+const search = async (collectionName: string, chat: ChatInfo, question: string): Promise<ChatAnswer> => {
   const model = new ChatOpenAI({ temperature: 0 })
   const runtime = RUNTIME()
   const dbStore = await Milvus.fromExistingCollection(new OpenAIEmbeddings(), {
@@ -75,7 +75,7 @@ const search = async (collectionName: string, chat: ChatInfo, question: string):
 
   const finalResult = result + '\n' + 'Source documents: ' + SearchUtils.listSourceDocs(documents)
   console.log(finalResult)
-  return finalResult
+  return { answerMsg: result, sourceDocuments: SearchUtils.listSourceDocs(documents) }
 }
 
 export const SearchRunnableSequence = { search }
