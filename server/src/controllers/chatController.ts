@@ -25,12 +25,15 @@ declare module 'express-session' {
 
 // getting all chats
 const getChats = async (req: Request, res: Response, next: NextFunction) => {
-  // get some chats
-  // let result: AxiosResponse = await axios.get(`https://jsonplaceholder.typicode.com/chats`)
-  // let chats: [Chat] = result.data
-  // await Chatter.consumeDocuments()
+  const strippedChats = req.session.chats?.map((chat) => {
+    return {
+      chatId: chat.chatId,
+      chatName: chat.chatName,
+    }
+  })
+
   return res.status(200).json({
-    chats: req.session.chats,
+    chats: strippedChats,
   })
 }
 

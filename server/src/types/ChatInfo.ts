@@ -1,6 +1,7 @@
 export type ChatAnswer = {
   answerMsg: string
   sourceDocuments: string
+  generatedQuestion?: string
 }
 
 export type ChatMessage = {

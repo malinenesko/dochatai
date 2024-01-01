@@ -11,6 +11,7 @@ export const RUNTIME = () => {
     MILVUS_TOKEN: process.env.MILVUS_TOKEN ?? '',
     MILVUS_COLLECTION_NAME: process.env.MILVUS_COLLECTION_NAME ?? 'dochatai',
     OPENAI_API_KEY: process.env.OPENAI_API_KEY ?? '',
+    VECTOR_DB_SEARCH_RESULTS_LIMIT: (process.env.VECTOR_DB_SEARCH_RESULTS_LIMIT ?? 5) as number,
   }
 }
 
