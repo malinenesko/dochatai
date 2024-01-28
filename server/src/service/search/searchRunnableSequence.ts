@@ -7,7 +7,7 @@ import { StringOutputParser } from 'langchain/schema/output_parser'
 import { RUNTIME } from '../../constants'
 import { MetricType } from '@zilliz/milvus2-sdk-node'
 import { ChatAnswer, ChatInfo } from '@/src/types'
-import { SearchUtils } from './util'
+import { SearchUtils } from '../vectordb/util'
 
 const search = async (collectionName: string, chat: ChatInfo, question: string): Promise<ChatAnswer> => {
   const model = new ChatOpenAI({ temperature: 0 })

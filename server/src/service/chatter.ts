@@ -2,9 +2,9 @@ import { ChatInfo } from '../types'
 import { SearchType } from '../types/SearchType'
 import { DocHandler } from './dochandler/dochandler'
 import { MilvusClientService } from './vectordb/milvusClient'
-import { SearchPredict } from './vectordb/searchPredict'
-import { SearchQAChainSimple } from './vectordb/searchQAChainSimple'
-import { SearchRunnableSequence } from './vectordb/searchRunnableSequence'
+import { SearchPredict } from './search/searchPredict'
+import { SearchQAChainSimple } from './search/searchQAChainSimple'
+import { SearchRunnableSequence } from './search/searchRunnableSequence'
 
 const COLLECTION_NAME = (process.env.MILVUS_COLLECTION_NAME ?? 'dochatai') as string
 

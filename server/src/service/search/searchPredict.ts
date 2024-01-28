@@ -14,7 +14,7 @@ import { RUNTIME } from '../../constants'
 import { MetricType } from '@zilliz/milvus2-sdk-node'
 import { ChatAnswer, ChatInfo, ChatMessage } from '@/src/types'
 import { BufferMemory, ConversationSummaryMemory } from 'langchain/memory'
-import { SearchUtils } from './util'
+import { SearchUtils } from '../vectordb/util'
 
 const search = async (collectionName: string, chat: ChatInfo, question: string): Promise<ChatAnswer> => {
   // { openAIApiKey: OPENAI_API_KEY }
