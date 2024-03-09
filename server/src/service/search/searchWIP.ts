@@ -14,7 +14,7 @@ import { RUNTIME } from '../../constants'
 import { MetricType } from '@zilliz/milvus2-sdk-node'
 import { ChatInfo, ChatMessage } from '@/src/types'
 import { BufferMemory, ConversationSummaryMemory } from 'langchain/memory'
-import { SearchUtils } from './util'
+import { SearchUtils } from '../vectordb/util'
 
 const search = async (collectionName: string, chat: ChatInfo, question: string): Promise<string> => {
   // { openAIApiKey: OPENAI_API_KEY }
@@ -31,8 +31,7 @@ const search = async (collectionName: string, chat: ChatInfo, question: string):
   })
   dbStore.fields.push('chatId', 'source', 'pageContent')
   dbStore.indexCreateParams.metric_type = MetricType.IP
-  // , and if you don't know the answer, say "Beats me, bro
-  // what kind of disruptions can be caused by digital transformation
+
   const PROMPT_TEMPLATE = `Answer the given question based on the context and chat history, using descriptive language and specific details. 
    List the information and all the sources available from the context metadata field.:
     ChatId: {chatId}
