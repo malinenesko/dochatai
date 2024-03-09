@@ -8,7 +8,7 @@ import { SearchType } from '../types/SearchType'
 declare module 'express-session' {
   interface SessionData {
     chatSessionId?: string
-    chats?: ChatInfo[]
+    chats?: ChatInfo[] // TODO Change into Map<string, ChatInfo> ?
   }
 }
 
@@ -119,36 +119,6 @@ const chatQuestion = async (req: Request, res: Response, next: NextFunction) => 
       error: 'Failed to send the question',
     })
   }
-}
-
-// updating a chat
-const updateChat = async (req: Request, res: Response, next: NextFunction) => {
-  // get the chat id from the req.params
-  let id: string = req.params.id
-  // get the data from req.body
-  let title: string = req.body.title ?? null
-  let body: string = req.body.body ?? null
-  // update the chat
-  let response: AxiosResponse = await axios.put(`https://jsonplaceholder.typicode.com/chats/${id}`, {
-    ...(title && { title }),
-    ...(body && { body }),
-  })
-  // return response
-  return res.status(200).json({
-    message: response.data,
-  })
-}
-
-// deleting a chat
-const deleteChat = async (req: Request, res: Response, next: NextFunction) => {
-  // get the chat id from req.params
-  let id: string = req.params.id
-  // delete the chat
-  let response: AxiosResponse = await axios.delete(`https://jsonplaceholder.typicode.com/chats/${id}`)
-  // return response
-  return res.status(200).json({
-    message: 'chat deleted successfully',
-  })
 }
 
 export default { getChats, createChat, processDocuments, chatQuestion }

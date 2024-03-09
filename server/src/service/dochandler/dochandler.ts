@@ -30,7 +30,7 @@ const processUploadedDocuments = async (chatInfo: ChatInfo, collectionName: stri
 
   const result = await Promise.all(
     documents.map(async (doc) => {
-      await sleep(500) // Wait a little bit for Milvus to index
+      await sleep(700) // Wait a little bit for Milvus to index
       return await processDocument(doc, chatInfo, collectionName, milvusClient)
     }),
   )
