@@ -11,7 +11,7 @@ declare module 'express-session' {
   interface SessionData {
     chatSessionId?: string
     chats?: ChatInfo[]
-    documentSummaries?: DocumentProcessResult[]
+    documentResults?: DocumentProcessResult[]
   }
 }
 
@@ -29,6 +29,20 @@ const getChats = async (req: Request, res: Response, next: NextFunction) => {
   })
 }
 
+const getChatHistory = async (req: Request, res: Response, next: NextFunction) => {
+  const foundChat = req.session.chats?.find((chat) => chat.chatId === req.params.id)
+
+  if (!foundChat) {
+    return res.status(404).json({
+      message: 'Chat not found with id: ' + req.params.id,
+    })
+  }
+
+  return res.status(200).json({
+    chat: foundChat,
+  })
+}
+
 /**
  * Process documents.
  *
@@ -42,18 +56,24 @@ const processDocuments = async (req: Request, res: Response, next: NextFunction)
       message: 'Chat not found with id: ' + chatId,
     })
   }
-  console.log('Session summaries before update: \n', req.session.documentSummaries)
+  const existingSummaries = req.session.documentResults ?? []
+  logSummaries('Session summaries before update:', existingSummaries)
 
-  const existingSummaries = req.session.documentSummaries ?? []
   const result = await Chatter.processDocuments(chatInfo, existingSummaries)
-  req.session.documentSummaries = [...existingSummaries, ...result]
+  req.session.documentResults = [...existingSummaries, ...result]
 
   const docinfoList = result.map((result) => result.documentInfo)
   console.log('Documents process result: ', docinfoList)
-  console.log('Session summaries after update: \n', req.session.documentSummaries)
+  logSummaries('Session summaries after update:', req.session.documentResults)
+
   return res.status(200).json({
     processedDocuments: docinfoList,
   })
+}
+
+const logSummaries = (title: string, summaries: DocumentProcessResult[]) => {
+  console.log(title)
+  console.log(summaries.map((summary) => summary.documentHash))
 }
 
 /**
@@ -120,4 +140,31 @@ const chatQuestion = async (req: Request, res: Response, next: NextFunction) => 
   }
 }
 
-export default { getChats, createChat, processDocuments, chatQuestion }
+const getSummaries = async (req: Request, res: Response, next: NextFunction) => {
+  const strippedSummaries = req.session.documentResults?.map((summary) => {
+    return {
+      documentHash: summary.documentHash,
+      documentInfo: summary.documentInfo,
+    }
+  })
+
+  return res.status(200).json({
+    summaries: strippedSummaries,
+  })
+}
+
+const getSummaryDetails = async (req: Request, res: Response, next: NextFunction) => {
+  const foundSummary = req.session.documentResults?.find((summary) => summary.documentHash === req.params.id)
+
+  if (!foundSummary) {
+    return res.status(404).json({
+      message: 'Summary not found with id: ' + req.params.id,
+    })
+  }
+
+  return res.status(200).json({
+    summary: foundSummary,
+  })
+}
+
+export default { processDocuments, getChats, getChatHistory, createChat, chatQuestion, getSummaries, getSummaryDetails }

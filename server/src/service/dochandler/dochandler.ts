@@ -50,10 +50,15 @@ const processUploadedDocuments = async (
         // Already processed, no summary
         return { documentHash, documentInfo }
       }
-      const processPromise = processDocument(doc, documentInfo, chatInfo.chatId, collectionName, milvusClient)
-      const summarizePromise = Summarizer.generateSummary(doc)
-      const summary = (await Promise.all([processPromise, summarizePromise]))[1]
-      return { documentHash, documentInfo, summary: summary['text'] }
+      try {
+        const processPromise = processDocument(doc, documentInfo, chatInfo.chatId, collectionName, milvusClient)
+        const summarizePromise = Summarizer.generateSummary(doc)
+        const summary = (await Promise.all([processPromise, summarizePromise]))[1]
+        return { documentHash, documentInfo, summary: summary?.['text'] }
+      } catch (error) {
+        console.log('Error handling document: ', documentInfo, error)
+        return { documentHash, documentInfo }
+      }
     }),
   ).then((results) => results.filter((result) => result.summary !== undefined))
 

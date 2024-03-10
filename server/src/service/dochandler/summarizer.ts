@@ -52,12 +52,16 @@ const summarizeMessages = async (documents: Document[]): Promise<ChainValues> =>
   return res
 }
 
-const generateSummary = async (document: Document) => {
-  const splitDocumentParts: Document[] = await new RecursiveCharacterTextSplitter({
-    chunkSize: Number(RUNTIME().SUMMARY_DOCUMENT_CHUNK_SIZE),
-    chunkOverlap: Number(RUNTIME().SUMMARY_DOCUMENT_CHUNK_OVERLAP),
-  }).splitDocuments([document])
-  return await Summarizer.summarizeMessages(splitDocumentParts)
+const generateSummary = async (document: Document): Promise<ChainValues | undefined> => {
+  try {
+    const splitDocumentParts: Document[] = await new RecursiveCharacterTextSplitter({
+      chunkSize: Number(RUNTIME().SUMMARY_DOCUMENT_CHUNK_SIZE),
+      chunkOverlap: Number(RUNTIME().SUMMARY_DOCUMENT_CHUNK_OVERLAP),
+    }).splitDocuments([document])
+    return await Summarizer.summarizeMessages(splitDocumentParts)
+  } catch (error) {
+    console.log('Error generating summary for document: ', document.metadata.source, error)
+  }
 }
 
 export const Summarizer = { summarizeMessages, generateSummary }
