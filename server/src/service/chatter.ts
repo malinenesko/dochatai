@@ -1,16 +1,20 @@
 import { ChatInfo } from '../types'
 import { SearchType } from '../types/SearchType'
-import { DocHandler } from './dochandler/dochandler'
+import { DocHandler, DocumentProcessResult } from './dochandler/dochandler'
 import { MilvusClientService } from './vectordb/milvusClient'
 import { SearchPredict } from './search/searchPredict'
 import { SearchQAChainSimple } from './search/searchQAChainSimple'
 import { SearchRunnableSequence } from './search/searchRunnableSequence'
+import { RUNTIME } from '../constants'
 
-const COLLECTION_NAME = (process.env.MILVUS_COLLECTION_NAME ?? 'dochatai') as string
+const COLLECTION_NAME = RUNTIME().MILVUS_COLLECTION_NAME
 
-const processDocuments = async (chatInfo: ChatInfo): Promise<number> => {
+const processDocuments = async (
+  chatInfo: ChatInfo,
+  existingSummaries: DocumentProcessResult[],
+): Promise<DocumentProcessResult[]> => {
   console.log('Running docHandler...')
-  return await DocHandler.processUploadedDocuments(chatInfo, COLLECTION_NAME)
+  return await DocHandler.processUploadedDocuments(chatInfo, COLLECTION_NAME, existingSummaries)
 }
 
 const initChat = async (): Promise<string> => {

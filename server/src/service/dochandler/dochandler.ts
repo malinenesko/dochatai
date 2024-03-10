@@ -1,112 +1,112 @@
-import { DOCUMENT_TEXT_CHUNK_OVERLAP, DOCUMENT_TEXT_CHUNK_SIZE, RUNTIME } from '../../constants'
 import { DirectoryLoader } from 'langchain/document_loaders/fs/directory'
 import { Document } from 'langchain/document'
 import { PDFLoader } from 'langchain/document_loaders/fs/pdf'
-import { OpenAIEmbeddings } from 'langchain/embeddings/openai'
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter'
 import { MilvusClientService } from '../vectordb/milvusClient'
-import { InsertReq, MetricType, MilvusClient, ResStatus, RowData, sleep } from '@zilliz/milvus2-sdk-node'
+import { InsertReq, MilvusClient, RowData, sleep } from '@zilliz/milvus2-sdk-node'
 import { ChatInfo } from '@/src/types'
-import { Milvus } from 'langchain/vectorstores/milvus'
 import { SearchUtils } from '../vectordb/util'
+import { LLM } from '../llm'
+import { Summarizer } from './summarizer'
+import { RUNTIME } from '../../constants'
+import { ChainValues } from 'langchain/dist/schema'
+var hash = require('object-hash')
 
-const openAIApiKey = process.env.OPENAI_API_KEY
-let milvusClientInstance: MilvusClient
+export type DocumentInfo = {
+  source: string
+  author: string
+  title: string
+}
 
-const processUploadedDocuments = async (chatInfo: ChatInfo, collectionName: string): Promise<number> => {
+export type DocumentProcessResult = {
+  documentHash: string
+  documentInfo: DocumentInfo
+  summary?: string
+}
+
+const processUploadedDocuments = async (
+  chatInfo: ChatInfo,
+  collectionName: string,
+  existingSummaries: DocumentProcessResult[],
+): Promise<DocumentProcessResult[]> => {
   const filePath = process.env.NODE_ENV === 'production' ? '/tmp' : 'tmp'
-  console.log('Env variables', process.env.MILVUS_URL, process.env.MILVUS_TOKEN, filePath, openAIApiKey)
+  console.log('Env variables', process.env.MILVUS_URL, process.env.MILVUS_TOKEN, filePath)
 
-  const documents = await new DirectoryLoader(filePath, {
+  const documents: Document[] = await new DirectoryLoader(filePath, {
     '.pdf': (path) => new PDFLoader(path, { splitPages: false }),
   }).load()
   if (documents.length <= 0) {
-    return 0
+    return []
   }
 
-  // processDocuments(documents, chatInfo, collectionName)
-  // return 2
-  const milvusClient = await MilvusClientService.getMilvusClient()
+  const milvusClient = MilvusClientService.getMilvusClient()
 
-  const result = await Promise.all(
-    documents.map(async (doc) => {
-      await sleep(700) // Wait a little bit for Milvus to index
-      return await processDocument(doc, chatInfo, collectionName, milvusClient)
+  const processResults: DocumentProcessResult[] = await Promise.all(
+    documents.map(async (doc, index) => {
+      if (index > 0) await sleep(700) // Wait a little bit for Milvus to index
+      const documentInfo = getDocumentInfo(doc, chatInfo)
+      const documentHash = hash(documentInfo)
+      if (existingSummaries.some((result) => result.documentHash === documentHash)) {
+        // Already processed, no summary
+        return { documentHash, documentInfo }
+      }
+      const processPromise = processDocument(doc, documentInfo, chatInfo.chatId, collectionName, milvusClient)
+      const summarizePromise = Summarizer.generateSummary(doc)
+      const summary = (await Promise.all([processPromise, summarizePromise]))[1]
+      return { documentHash, documentInfo, summary: summary['text'] }
     }),
-  )
+  ).then((results) => results.filter((result) => result.summary !== undefined))
+
   milvusClient.closeConnection()
-  return result.length
+
+  return processResults
 }
 
-const processDocuments = async (documents: Document[], chatInfo: ChatInfo, collectionName: string) => {
-  const runtime = RUNTIME()
-  const dbStore = await Milvus.fromExistingCollection(new OpenAIEmbeddings(), {
-    collectionName: 'dochatai',
-    // url: MILVUS_URL,
-    clientConfig: {
-      address: runtime.MILVUS_URL,
-      token: runtime.MILVUS_TOKEN,
-    },
-  })
-
-  dbStore.indexCreateParams.metric_type = MetricType.IP
-  await dbStore.addDocuments(documents)
-
-  // const res = await Milvus.fromDocuments(documents, new OpenAIEmbeddings(), {
-  //   collectionName: 'dochatai2',
-  //   clientConfig: {
-  //     address: runtime.MILVUS_URL,
-  //     token: runtime.MILVUS_TOKEN,
-  //   },
-  // })
-  // console.log('Document stored: ', res.collectionName, res.indexSearchParams)
+const getDocumentInfo = (document: Document, chatInfo: ChatInfo): DocumentInfo => {
+  const documentSource = SearchUtils.getDocumentSource(document.metadata.source)
+  return {
+    source: documentSource,
+    author: document.metadata.pdf?.info?.Author,
+    title: document.metadata.pdf?.info?.Title ?? documentSource,
+  }
 }
 
 const processDocument = async (
   document: Document,
-  chatInfo: ChatInfo,
+  documentInfo: DocumentInfo,
+  chatId: string,
   collectionName: string,
   milvusClient: MilvusClient,
 ) => {
-  const splitDocumentParts = await new RecursiveCharacterTextSplitter({
-    chunkSize: Number(DOCUMENT_TEXT_CHUNK_SIZE),
-    chunkOverlap: Number(DOCUMENT_TEXT_CHUNK_OVERLAP),
+  const splitDocumentParts: Document[] = await new RecursiveCharacterTextSplitter({
+    chunkSize: Number(RUNTIME().VECTOR_DB_DOCUMENT_CHUNK_SIZE),
+    chunkOverlap: Number(RUNTIME().VECTOR_DB_DOCUMENT_CHUNK_OVERLAP),
   }).splitDocuments([document])
-  // console.log('Split document parts: ', splitDocumentParts.length)
 
-  const embeddings = new OpenAIEmbeddings({ openAIApiKey })
+  const embeddings = LLM.getLlmEmbeddings()
   const embeddedDocuments = await embeddings.embedDocuments(splitDocumentParts.map((entry) => entry.pageContent))
-  // console.log('EmbeddedDocs: ', embeddedDocuments.length)
 
   const rowData: RowData[] = embeddedDocuments.map((entry, index) => {
-    const documentSource = SearchUtils.getDocumentSource(document.metadata.source)
     return {
-      chatId: chatInfo.chatId,
-      source: documentSource,
-      author: document.metadata.pdf?.info?.Author,
-      title: document.metadata.pdf?.info?.Title ?? documentSource,
+      ...documentInfo,
+      chatId,
       pageContent: splitDocumentParts[index].pageContent,
       vector: entry,
     }
   })
-
-  // console.log('RowData: ', rowData.length)
-  console.log('RowData 0: ', rowData[0])
 
   const insertReq: InsertReq = { collection_name: collectionName, data: rowData }
   const result = await milvusClient.insert(insertReq)
   console.log(document.metadata.source, result.status.error_code)
 
   if (result.status.error_code !== '' && result.status.error_code !== 'Success') {
-    throw new Error('Failed to insert document: ' + document.metadata.source)
+    throw new Error(`Failed to insert document: ${document.metadata.source} ${result.status.error_code}`)
   }
 
-  return true
+  return result
 }
 
-const getClient = async (): Promise<MilvusClient> => {
-  return (milvusClientInstance = milvusClientInstance || (await MilvusClientService.getMilvusClient()))
-}
+export default DocumentInfo
 
 export const DocHandler = {
   processUploadedDocuments,

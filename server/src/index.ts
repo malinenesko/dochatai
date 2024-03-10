@@ -63,6 +63,11 @@ router.use((req, res, next) => {
   })
 })
 
+process.on('unhandledRejection', (reason, p) => {
+  console.log('Unhandled Rejection at: Promise', p, 'reason:', reason)
+  // application specific logging, throwing an error, or other logic here
+})
+
 /** Server */
 const httpServer = http.createServer(router)
 const PORT: any = process.env.PORT ?? 6060

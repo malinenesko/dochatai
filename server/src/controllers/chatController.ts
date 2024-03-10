@@ -2,26 +2,18 @@ import { Request, Response, NextFunction } from 'express'
 import axios, { AxiosResponse } from 'axios'
 import { Chatter } from '../service/chatter'
 import { ChatInfo } from '../types'
-import { randomInt, randomUUID } from 'crypto'
+import { Hash, randomInt, randomUUID } from 'crypto'
 import { SearchType } from '../types/SearchType'
+import { DocumentProcessResult } from '../service/dochandler/dochandler'
+var hash = require('object-hash')
 
 declare module 'express-session' {
   interface SessionData {
     chatSessionId?: string
-    chats?: ChatInfo[] // TODO Change into Map<string, ChatInfo> ?
+    chats?: ChatInfo[]
+    documentSummaries?: DocumentProcessResult[]
   }
 }
-
-// TODO features in API:
-// - implement chat feature, so OpenAI is asked with the context in vector db
-// - add chat history to the db (inside the collection or some other way?) to allow longer context
-// OPTIONAL:
-// - create session / chat (describeCollection to check)
-// - add documents asynchronously (need some session store, defaulting to memorystore but is that enough)
-// - add check if document processing is done
-// - return a list of documents in vector db
-// - connect to an old session (by key, cookie, etc)
-//
 
 // getting all chats
 const getChats = async (req: Request, res: Response, next: NextFunction) => {
@@ -50,10 +42,17 @@ const processDocuments = async (req: Request, res: Response, next: NextFunction)
       message: 'Chat not found with id: ' + chatId,
     })
   }
-  const result = await Chatter.processDocuments(chatInfo)
-  console.log('Documents process result: ', result)
+  console.log('Session summaries before update: \n', req.session.documentSummaries)
+
+  const existingSummaries = req.session.documentSummaries ?? []
+  const result = await Chatter.processDocuments(chatInfo, existingSummaries)
+  req.session.documentSummaries = [...existingSummaries, ...result]
+
+  const docinfoList = result.map((result) => result.documentInfo)
+  console.log('Documents process result: ', docinfoList)
+  console.log('Session summaries after update: \n', req.session.documentSummaries)
   return res.status(200).json({
-    processedDocuments: result,
+    processedDocuments: docinfoList,
   })
 }
 
