@@ -140,8 +140,8 @@ const chatQuestion = async (req: Request, res: Response, next: NextFunction) => 
   }
 }
 
-const getSummaries = async (req: Request, res: Response, next: NextFunction) => {
-  const strippedSummaries = req.session.documentResults?.map((summary) => {
+const getDocuments = async (req: Request, res: Response, next: NextFunction) => {
+  const strippedDocuments = req.session.documentResults?.map((summary) => {
     return {
       documentHash: summary.documentHash,
       documentInfo: summary.documentInfo,
@@ -149,11 +149,11 @@ const getSummaries = async (req: Request, res: Response, next: NextFunction) => 
   })
 
   return res.status(200).json({
-    summaries: strippedSummaries,
+    documents: strippedDocuments,
   })
 }
 
-const getSummaryDetails = async (req: Request, res: Response, next: NextFunction) => {
+const getDocumentDetails = async (req: Request, res: Response, next: NextFunction) => {
   const foundSummary = req.session.documentResults?.find((summary) => summary.documentHash === req.params.id)
 
   if (!foundSummary) {
@@ -167,4 +167,12 @@ const getSummaryDetails = async (req: Request, res: Response, next: NextFunction
   })
 }
 
-export default { processDocuments, getChats, getChatHistory, createChat, chatQuestion, getSummaries, getSummaryDetails }
+export default {
+  processDocuments,
+  getChats,
+  getChatHistory,
+  createChat,
+  chatQuestion,
+  getDocuments,
+  getDocumentDetails,
+}

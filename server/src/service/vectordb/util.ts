@@ -37,10 +37,15 @@ const listSourceDocs = (docs: Document[]): string =>
 
 const createChatMessageHistory = (messages: ChatMessage[], maxLimit: number) => {
   const history = new ChatMessageHistory()
+  const lengthLimit = 16384
+  let historyLength = 0
 
   messages?.slice(-maxLimit).forEach((message) => {
-    history.addUserMessage(message.question)
-    history.addAIChatMessage(message.answer.answerMsg ?? '')
+    historyLength += message.question.length + (message.answer.answerMsg ?? '').length
+    if (historyLength < lengthLimit) {
+      history.addUserMessage(message.question)
+      history.addAIChatMessage(message.answer.answerMsg ?? '')
+    }
   })
 
   return history

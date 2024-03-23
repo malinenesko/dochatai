@@ -61,10 +61,10 @@ const initCollection = async (collectionName: string): Promise<string | undefine
   return descriptionResult.collectionID
 }
 
-const openClientOnCollection = async (): Promise<Milvus> => {
+const openClientOnCollection = async (collectionName: string): Promise<Milvus> => {
   const runtime = RUNTIME()
   const milvusClient = await Milvus.fromExistingCollection(new OpenAIEmbeddings(), {
-    collectionName: runtime.MILVUS_COLLECTION_NAME,
+    collectionName,
     textField: 'pageContent',
     vectorField: 'vector',
     clientConfig: {

@@ -14,7 +14,7 @@ const runtime = RUNTIME()
 
 const memcached = MemcachedStore(session)
 const memcachedInstance = new memcached({
-  hosts: ['127.0.0.1:11211'], // Replace with your Memcached server host and port
+  hosts: ['127.0.0.1:11211'],
   secret: 'thisisaverysecretkeyforencryptingsessioncookie',
 })
 
@@ -53,7 +53,7 @@ router.use((req, res, next) => {
 router.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument))
 
 /** Routes */
-router.use('/', routes)
+router.use('/v1', routes)
 
 /** Error handling */
 router.use((req, res, next) => {
