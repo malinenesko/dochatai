@@ -3,12 +3,14 @@ import { BaseChatModel } from 'langchain/dist/chat_models/base'
 import { Embeddings } from 'langchain/dist/embeddings/base'
 import { OpenAIEmbeddings } from 'langchain/embeddings/openai'
 import { RUNTIME } from '../constants'
+import OpenAI from 'openai'
 
-const getLlmModel = (): BaseChatModel => {
+const getChatLlmModel = (maxTokens = -1, temperature = 0.1, batchSize = 10): BaseChatModel => {
   return new ChatOpenAI({
     modelName: RUNTIME().OPENAI_LLM_MODEL,
-    temperature: 0.1,
-    maxTokens: -1,
+    maxRetries: 5,
+    temperature,
+    maxTokens,
     cache: true,
     verbose: true,
   })
@@ -18,4 +20,4 @@ const getLlmEmbeddings = (): Embeddings => {
   return new OpenAIEmbeddings() as Embeddings
 }
 
-export const LLM = { getLlmModel, getLlmEmbeddings }
+export const LLM = { getLlmModel: getChatLlmModel, getLlmEmbeddings }

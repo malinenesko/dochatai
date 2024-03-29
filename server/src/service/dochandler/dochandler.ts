@@ -53,8 +53,8 @@ const processUploadedDocuments = async (
         const processPromise = processDocument(doc, documentInfo, chatInfo.chatId, collectionName, milvusClient)
         const summarizePromise = Summarizer.generateSummary(doc)
         const summary = (await Promise.all([processPromise, summarizePromise]))[1]
-        if (index < documents.length) await sleep(1000) // Wait a little bit for Milvus to index
-        return { documentHash, documentInfo, summary: summary?.['text'] }
+        if (index > 0 && index < documents.length) await sleep(1000) // Wait a little bit for Milvus to index
+        return { documentHash, documentInfo, summary }
       } catch (error) {
         console.log('Error handling document: ', documentInfo, error)
         return { documentHash, documentInfo }
