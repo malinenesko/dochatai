@@ -13,6 +13,12 @@ const getChatLlmModel = (maxTokens = -1, temperature = 0.1, batchSize = 10): Bas
     maxTokens,
     cache: true,
     verbose: true,
+    // n: -1,
+    // For experimenting with custom LLMs
+    // configuration: {
+    //   baseURL: 'http://localhost:1234/v1',
+    //   apiKey: 'lm-studio',
+    // },
   })
 }
 

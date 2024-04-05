@@ -21,11 +21,9 @@ const getMilvusClient = (): MilvusClient => {
 
 const getCreateCollectionRequest = (collectionName: string): CreateColReq => {
   const dimension = parseInt(process.env.MILVUS_COLLECTION_DIMENSION ?? '-1')
-  console.log('Timeout: ', RUNTIME().CALL_TIMEOUT)
   return {
     collection_name: collectionName,
     dimension,
-    // index_file_size: 1024, // optional, default: 1024
     index_params: {
       metric_type: MetricType.IP, // optional, default: "L2"
     },
@@ -33,7 +31,7 @@ const getCreateCollectionRequest = (collectionName: string): CreateColReq => {
     vector_field_name: 'vector',
     primary_field_name: 'id',
     auto_id: true,
-    // timeout: RUNTIME().CALL_TIMEOUT,
+    timeout: RUNTIME().CALL_TIMEOUT,
   }
 }
 

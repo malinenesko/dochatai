@@ -14,7 +14,7 @@ const runtime = RUNTIME()
 
 const memcached = MemcachedStore(session)
 const memcachedInstance = new memcached({
-  hosts: ['127.0.0.1:11211'],
+  hosts: [process.env.MEMCACHED_URL ?? 'localhost:11211'],
   secret: 'thisisaverysecretkeyforencryptingsessioncookie',
 })
 

@@ -17,16 +17,11 @@
     "module": "commonjs",
     "moduleResolution": "node",
     "sourceMap": true,
-    // "types": [
-    //   "node",
-    //   "jest"
-    // ],
     "outDir": "./build",
     "rootDir": "./src",
     "baseUrl": ".",
     "paths": {
       "@/*": ["./*"],
-      // "@constants" : ["./src/constants"]
     },
   },
   "include": [

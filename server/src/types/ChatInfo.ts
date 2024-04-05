@@ -5,8 +5,6 @@ export type ChatAnswer = {
 }
 
 export type ChatMessage = {
-  // userId: number
-  // id: number
   question: string
   answer: ChatAnswer
 }

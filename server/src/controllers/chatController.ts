@@ -4,7 +4,8 @@ import { Chatter } from '../service/chatter'
 import { ChatInfo } from '../types'
 import { Hash, randomInt, randomUUID } from 'crypto'
 import { SearchType } from '../types/SearchType'
-import { DocumentProcessResult } from '../service/dochandler/dochandler'
+import { DocHandler, DocumentProcessResult } from '../service/dochandler/dochandler'
+import { Summarizer } from '../service/dochandler/summarizer'
 var hash = require('object-hash')
 
 declare module 'express-session' {
@@ -24,9 +25,7 @@ const getChats = async (req: Request, res: Response, next: NextFunction) => {
     }
   })
 
-  return res.status(200).json({
-    chats: strippedChats,
-  })
+  return res.status(200).json(strippedChats)
 }
 
 const getChatHistory = async (req: Request, res: Response, next: NextFunction) => {
@@ -38,9 +37,7 @@ const getChatHistory = async (req: Request, res: Response, next: NextFunction) =
     })
   }
 
-  return res.status(200).json({
-    chat: foundChat,
-  })
+  return res.status(200).json(foundChat)
 }
 
 /**
@@ -48,12 +45,11 @@ const getChatHistory = async (req: Request, res: Response, next: NextFunction) =
  *
  */
 const processDocuments = async (req: Request, res: Response, next: NextFunction) => {
-  // TODO: Add automatic schema validation
   const { chatId } = req.body
   const chatInfo = req.session.chats?.find((chat) => chat.chatId === chatId)
   if (!chatInfo) {
     return res.status(404).json({
-      message: 'Chat not found with id: ' + chatId,
+      message: `Chat not found with id: ${chatId}`,
     })
   }
   const existingSummaries = req.session.documentResults ?? []
@@ -63,7 +59,7 @@ const processDocuments = async (req: Request, res: Response, next: NextFunction)
   req.session.documentResults = [...existingSummaries, ...result]
 
   const docinfoList = result.map((result) => result.documentInfo)
-  console.log('Documents process result: ', docinfoList)
+  // console.log('Documents process result: ', docinfoList)
   logSummaries('Session summaries after update:', req.session.documentResults)
 
   return res.status(200).json({
@@ -96,7 +92,6 @@ const createChat = async (req: Request, res: Response, next: NextFunction) => {
       req.session.chats = []
     }
     const allChats = req.session.chats
-    // Need for this check?
     const existingChat = allChats?.find((chat) => chat.chatId === chatId)
     if (!existingChat) {
       allChats?.push(chatInfo)
@@ -128,10 +123,8 @@ const chatQuestion = async (req: Request, res: Response, next: NextFunction) => 
   try {
     const chatInfo = getCurrentChat(chatId, req.session.chats)
     const result = await Chatter.executeQuestion(chatInfo, question, searchType as SearchType)
-
-    return res.status(200).json({
-      chat: result,
-    })
+    const lastMessage = result.messages[result.messages.length - 1]
+    return res.status(200).json(lastMessage)
   } catch (error) {
     console.error(error)
     res.status(500).json({
@@ -154,17 +147,33 @@ const getDocuments = async (req: Request, res: Response, next: NextFunction) => 
 }
 
 const getDocumentDetails = async (req: Request, res: Response, next: NextFunction) => {
-  const foundSummary = req.session.documentResults?.find((summary) => summary.documentHash === req.params.id)
+  const foundDetails = req.session.documentResults?.find((details) => details.documentHash === req.params.id)
 
-  if (!foundSummary) {
+  if (!foundDetails) {
     return res.status(404).json({
-      message: 'Summary not found with id: ' + req.params.id,
+      message: 'Document info not found with id: ' + req.params.id,
     })
   }
 
   return res.status(200).json({
-    summary: foundSummary,
+    document: foundDetails,
   })
+}
+
+const generateSummary = async (req: Request, res: Response, next: NextFunction) => {
+  const foundDetails = req.session.documentResults?.find((summary) => summary.documentHash === req.params.id)
+
+  if (!foundDetails) {
+    return res.status(404).json({
+      message: 'Document info not found with id: ' + req.params.id,
+    })
+  }
+
+  if (!foundDetails.summary) {
+    foundDetails.summary = await DocHandler.generateSummaryForDocument(foundDetails.documentInfo)
+  }
+
+  return res.status(200).json(foundDetails)
 }
 
 export default {
@@ -175,4 +184,5 @@ export default {
   chatQuestion,
   getDocuments,
   getDocumentDetails,
+  generateSummary,
 }

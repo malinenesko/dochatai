@@ -1,0 +1,746 @@
+
+window.onload = function() {
+  // Build a system
+  var url = window.location.search.match(/url=([^&]+)/);
+  if (url && url.length > 1) {
+    url = decodeURIComponent(url[1]);
+  } else {
+    url = window.location.origin;
+  }
+  var options = {
+  "swaggerDoc": {
+    "openapi": "3.0.0",
+    "info": {
+      "title": "DoChatAI Server API",
+      "description": "DoChatAI API for managing LLM chats using document context.",
+      "version": "1.0.0"
+    },
+    "servers": [
+      {
+        "url": "http://localhost:8060/v1"
+      }
+    ],
+    "paths": {
+      "/chat": {
+        "post": {
+          "summary": "Create a new chat",
+          "operationId": "createChat",
+          "tags": [
+            "Chats"
+          ],
+          "responses": {
+            "200": {
+              "description": "A new empty chat",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/definitions/ChatInfo"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/chats": {
+        "get": {
+          "summary": "List all chats",
+          "operationId": "listChats",
+          "tags": [
+            "Chats"
+          ],
+          "responses": {
+            "200": {
+              "description": "An array of chats",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/definitions/ChatInfo"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/chats/{id}": {
+        "get": {
+          "summary": "Get chat history by chat id",
+          "operationId": "getChatHistory",
+          "parameters": [
+            {
+              "name": "chatId",
+              "in": "path",
+              "description": "Id of chat to view",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "tags": [
+            "Chats"
+          ],
+          "responses": {
+            "200": {
+              "description": "A single chat with message history",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/definitions/ChatInfo"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/chats/question": {
+        "post": {
+          "summary": "Ask a new question",
+          "operationId": "chatQuestion",
+          "parameters": [
+            {
+              "name": "chatId",
+              "in": "body",
+              "description": "Id of chat to view",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "name": "question",
+              "in": "body",
+              "description": "The question to ask",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "name": "searchType",
+              "in": "body",
+              "description": "Type of search to use ('qachain')",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "tags": [
+            "Chats"
+          ],
+          "responses": {
+            "200": {
+              "description": "The latest question with answer and additional data",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/definitions/ChatMessage"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/process": {
+        "post": {
+          "summary": "Process documents",
+          "operationId": "processDocuments",
+          "parameters": [
+            {
+              "name": "chatId",
+              "in": "path",
+              "description": "Id of chat to update documents for",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "tags": [
+            "Chats"
+          ],
+          "responses": {
+            "200": {
+              "description": "Successfully processed documents"
+            },
+            "404": {
+              "description": "Chat not found with id: {chatId}"
+            }
+          }
+        }
+      },
+      "/documents": {
+        "get": {
+          "summary": "List all documents",
+          "operationId": "getDocuments",
+          "tags": [
+            "Chats"
+          ],
+          "responses": {
+            "200": {
+              "description": "An array of documents",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/definitions/DocumentResult"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/documents/{id}": {
+        "get": {
+          "summary": "Get document details by id",
+          "operationId": "getDocumentDetails",
+          "parameters": [
+            {
+              "name": "documentId",
+              "in": "path",
+              "description": "Id of document to view",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "tags": [
+            "Chats"
+          ],
+          "responses": {
+            "200": {
+              "description": "A single document info with possible summary",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/definitions/DocumentResult"
+                  }
+                }
+              }
+            },
+            "404": {
+              "description": "Document not found with id: {documentId}"
+            }
+          }
+        }
+      },
+      "/documents/summary/{id}": {
+        "get": {
+          "summary": "Generate document summary",
+          "operationId": "generateSummary",
+          "parameters": [
+            {
+              "name": "documentId",
+              "in": "path",
+              "description": "Id of document to summarize",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "tags": [
+            "Chats"
+          ],
+          "responses": {
+            "200": {
+              "description": "A single document info with possible summary",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/definitions/DocumentResult"
+                  }
+                }
+              }
+            },
+            "404": {
+              "description": "Document not found with id: {documentId}"
+            }
+          }
+        }
+      }
+    },
+    "definitions": {
+      "ChatInfo": {
+        "type": "object",
+        "required": [
+          "chatId",
+          "chatName",
+          "messages"
+        ],
+        "properties": {
+          "chatId": {
+            "type": "string"
+          },
+          "chatName": {
+            "type": "string"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/ChatMessage"
+            }
+          }
+        }
+      },
+      "ChatMessage": {
+        "type": "object",
+        "required": [
+          "question",
+          "answer"
+        ],
+        "properties": {
+          "question": {
+            "type": "string"
+          },
+          "answer": {
+            "$ref": "#/definitions/ChatAnswer"
+          }
+        }
+      },
+      "ChatAnswer": {
+        "type": "object",
+        "required": [
+          "answerMsg",
+          "sourceDocuments"
+        ],
+        "properties": {
+          "answerMsg": {
+            "type": "string"
+          },
+          "sourceDocuments": {
+            "type": "string"
+          },
+          "generatedQuestion": {
+            "type": "string"
+          }
+        }
+      },
+      "DocumentInfo": {
+        "type": "object",
+        "required": [
+          "source",
+          "author",
+          "title"
+        ],
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "author": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "DocumentResult": {
+        "type": "object",
+        "required": [
+          "documentHash",
+          "documentInfo"
+        ],
+        "properties": {
+          "documentHash": {
+            "type": "string"
+          },
+          "documentInfo": {
+            "$ref": "#/definitions/DocumentInfo"
+          },
+          "summary": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "default": {
+      "openapi": "3.0.0",
+      "info": {
+        "title": "DoChatAI Server API",
+        "description": "DoChatAI API for managing LLM chats using document context.",
+        "version": "1.0.0"
+      },
+      "servers": [
+        {
+          "url": "http://localhost:8060/v1"
+        }
+      ],
+      "paths": {
+        "/chat": {
+          "post": {
+            "summary": "Create a new chat",
+            "operationId": "createChat",
+            "tags": [
+              "Chats"
+            ],
+            "responses": {
+              "200": {
+                "description": "A new empty chat",
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "$ref": "#/definitions/ChatInfo"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "/chats": {
+          "get": {
+            "summary": "List all chats",
+            "operationId": "listChats",
+            "tags": [
+              "Chats"
+            ],
+            "responses": {
+              "200": {
+                "description": "An array of chats",
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/definitions/ChatInfo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "/chats/{id}": {
+          "get": {
+            "summary": "Get chat history by chat id",
+            "operationId": "getChatHistory",
+            "parameters": [
+              {
+                "name": "chatId",
+                "in": "path",
+                "description": "Id of chat to view",
+                "required": true,
+                "type": "string"
+              }
+            ],
+            "tags": [
+              "Chats"
+            ],
+            "responses": {
+              "200": {
+                "description": "A single chat with message history",
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "$ref": "#/definitions/ChatInfo"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "/chats/question": {
+          "post": {
+            "summary": "Ask a new question",
+            "operationId": "chatQuestion",
+            "parameters": [
+              {
+                "name": "chatId",
+                "in": "body",
+                "description": "Id of chat to view",
+                "required": true,
+                "type": "string"
+              },
+              {
+                "name": "question",
+                "in": "body",
+                "description": "The question to ask",
+                "required": true,
+                "type": "string"
+              },
+              {
+                "name": "searchType",
+                "in": "body",
+                "description": "Type of search to use ('qachain')",
+                "required": true,
+                "type": "string"
+              }
+            ],
+            "tags": [
+              "Chats"
+            ],
+            "responses": {
+              "200": {
+                "description": "The latest question with answer and additional data",
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "$ref": "#/definitions/ChatMessage"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "/process": {
+          "post": {
+            "summary": "Process documents",
+            "operationId": "processDocuments",
+            "parameters": [
+              {
+                "name": "chatId",
+                "in": "path",
+                "description": "Id of chat to update documents for",
+                "required": true,
+                "type": "string"
+              }
+            ],
+            "tags": [
+              "Chats"
+            ],
+            "responses": {
+              "200": {
+                "description": "Successfully processed documents"
+              },
+              "404": {
+                "description": "Chat not found with id: {chatId}"
+              }
+            }
+          }
+        },
+        "/documents": {
+          "get": {
+            "summary": "List all documents",
+            "operationId": "getDocuments",
+            "tags": [
+              "Chats"
+            ],
+            "responses": {
+              "200": {
+                "description": "An array of documents",
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/definitions/DocumentResult"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "/documents/{id}": {
+          "get": {
+            "summary": "Get document details by id",
+            "operationId": "getDocumentDetails",
+            "parameters": [
+              {
+                "name": "documentId",
+                "in": "path",
+                "description": "Id of document to view",
+                "required": true,
+                "type": "string"
+              }
+            ],
+            "tags": [
+              "Chats"
+            ],
+            "responses": {
+              "200": {
+                "description": "A single document info with possible summary",
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "$ref": "#/definitions/DocumentResult"
+                    }
+                  }
+                }
+              },
+              "404": {
+                "description": "Document not found with id: {documentId}"
+              }
+            }
+          }
+        },
+        "/documents/summary/{id}": {
+          "get": {
+            "summary": "Generate document summary",
+            "operationId": "generateSummary",
+            "parameters": [
+              {
+                "name": "documentId",
+                "in": "path",
+                "description": "Id of document to summarize",
+                "required": true,
+                "type": "string"
+              }
+            ],
+            "tags": [
+              "Chats"
+            ],
+            "responses": {
+              "200": {
+                "description": "A single document info with possible summary",
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "$ref": "#/definitions/DocumentResult"
+                    }
+                  }
+                }
+              },
+              "404": {
+                "description": "Document not found with id: {documentId}"
+              }
+            }
+          }
+        }
+      },
+      "definitions": {
+        "ChatInfo": {
+          "type": "object",
+          "required": [
+            "chatId",
+            "chatName",
+            "messages"
+          ],
+          "properties": {
+            "chatId": {
+              "type": "string"
+            },
+            "chatName": {
+              "type": "string"
+            },
+            "messages": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/ChatMessage"
+              }
+            }
+          }
+        },
+        "ChatMessage": {
+          "type": "object",
+          "required": [
+            "question",
+            "answer"
+          ],
+          "properties": {
+            "question": {
+              "type": "string"
+            },
+            "answer": {
+              "$ref": "#/definitions/ChatAnswer"
+            }
+          }
+        },
+        "ChatAnswer": {
+          "type": "object",
+          "required": [
+            "answerMsg",
+            "sourceDocuments"
+          ],
+          "properties": {
+            "answerMsg": {
+              "type": "string"
+            },
+            "sourceDocuments": {
+              "type": "string"
+            },
+            "generatedQuestion": {
+              "type": "string"
+            }
+          }
+        },
+        "DocumentInfo": {
+          "type": "object",
+          "required": [
+            "source",
+            "author",
+            "title"
+          ],
+          "properties": {
+            "source": {
+              "type": "string"
+            },
+            "author": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            }
+          }
+        },
+        "DocumentResult": {
+          "type": "object",
+          "required": [
+            "documentHash",
+            "documentInfo"
+          ],
+          "properties": {
+            "documentHash": {
+              "type": "string"
+            },
+            "documentInfo": {
+              "$ref": "#/definitions/DocumentInfo"
+            },
+            "summary": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  "customOptions": {}
+};
+  url = options.swaggerUrl || url
+  var urls = options.swaggerUrls
+  var customOptions = options.customOptions
+  var spec1 = options.swaggerDoc
+  var swaggerOptions = {
+    spec: spec1,
+    url: url,
+    urls: urls,
+    dom_id: '#swagger-ui',
+    deepLinking: true,
+    presets: [
+      SwaggerUIBundle.presets.apis,
+      SwaggerUIStandalonePreset
+    ],
+    plugins: [
+      SwaggerUIBundle.plugins.DownloadUrl
+    ],
+    layout: "StandaloneLayout"
+  }
+  for (var attrname in customOptions) {
+    swaggerOptions[attrname] = customOptions[attrname];
+  }
+  var ui = SwaggerUIBundle(swaggerOptions)
+
+  if (customOptions.oauth) {
+    ui.initOAuth(customOptions.oauth)
+  }
+
+  if (customOptions.preauthorizeApiKey) {
+    const key = customOptions.preauthorizeApiKey.authDefinitionKey;
+    const value = customOptions.preauthorizeApiKey.apiKeyValue;
+    if (!!key && !!value) {
+      const pid = setInterval(() => {
+        const authorized = ui.preauthorizeApiKey(key, value);
+        if(!!authorized) clearInterval(pid);
+      }, 500)
+
+    }
+  }
+
+  if (customOptions.authAction) {
+    ui.authActions.authorize(customOptions.authAction)
+  }
+
+  window.ui = ui
+}

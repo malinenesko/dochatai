@@ -7,12 +7,13 @@ import {
 import { LLM } from '../llm'
 import { Document } from 'langchain/document'
 import { AgentAction, AgentFinish, ChainValues } from 'langchain/schema'
-import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter'
 import { PromptTemplate } from 'langchain/prompts'
 import { RUNTIME } from '../../constants'
-import { BaseCallbackHandler, CallbackManagerForChainRun, RunCollectorCallbackHandler } from 'langchain/callbacks'
+import { BaseCallbackHandler } from 'langchain/callbacks'
 import { Serialized } from 'langchain/load/serializable'
 import { sleep } from 'openai/core'
+import DocumentInfo from './dochandler'
+import { RateLimitError } from 'openai/error'
 
 let chain: StuffDocumentsChain | MapReduceDocumentsChain | RefineDocumentsChain | undefined
 let chainCounter = 1
@@ -22,18 +23,6 @@ class SummarizerCallbackHandler extends BaseCallbackHandler {
 
   async handleLLMError(err: any, runId: string, parentRunId?: string | undefined, tags?: string[] | undefined) {
     console.log(`handleLLMError err: ${err}`)
-    if (err.code === 'rate_limit_exceeded') {
-      let delay = 100000
-      try {
-        let index = err.message.indexOf('Please try again in ')
-        delay = (1000 *
-          err.message.substring(index + 'Please try again in '.length, err.message.indexOf('Visit') - 3)) as number
-      } catch (error) {
-        console.log('Error parsing message: ', error)
-      }
-      console.log(`handleLLMError err: ${err}, sleeping ${delay}s`)
-      await sleep(delay + 1000)
-    }
   }
 
   async handleChainError(
@@ -44,17 +33,14 @@ class SummarizerCallbackHandler extends BaseCallbackHandler {
     kwargs?: { inputs?: Record<string, unknown> | undefined } | undefined,
   ) {
     console.log(`handleChainError err: ${err}, sleeping 10s`)
-    // await sleep(10000)
   }
 
   async handleChainStart(chain: Serialized) {
     console.log(`Entering new ${chain.id} chain...`, chainCounter++)
-    // await sleep(1000 + chainCounter * 100)
   }
 
   async handleChainEnd(_output: ChainValues) {
     console.log('Finished chain. ', chainCounter--)
-    // await sleep(1000 + chainCounter * 100)
   }
 
   async handleAgentAction(action: AgentAction) {
@@ -76,11 +62,8 @@ class SummarizerCallbackHandler extends BaseCallbackHandler {
 
 const summaryTemplate = (length: number) => `Write a comprehensive summary of about ${length} words of the following:
 
-
 "{text}"
-
-
-COMPREHENSIVE SUMMARY:`
+`
 
 const init = () => {
   if (!chain) {
@@ -104,44 +87,27 @@ const init = () => {
   return chain
 }
 
-const summarizeMessages = async (documents: Document[]): Promise<string> => {
-  const chain = init()
-
-  // let contents = documents.map((doc) => doc.pageContent)
-  let res = (await processInputs(documents, 10, chain)).map((chainValue) => chainValue.text)
-  while (res.length > 1) {
-    documents = res.map((text) => ({ pageContent: text } as Document))
-    res = (await processInputs(documents, 10, chain)).map((chainValue) => chainValue.text)
+const generateSummary = async (documentParts: Document[], docInfo: DocumentInfo): Promise<string | undefined> => {
+  try {
+    chainCounter = 1
+    return await summarizeMessages(documentParts)
+  } catch (error) {
+    console.log('Error generating summary for document: ', docInfo.source, error)
   }
-  // chain.apply(documents)
-  // const callbackHandler = new SummarizerCallbackHandler()
-  // const res = await chain.call(
-  //   {
-  //     input_documents: documents,
-  //   },
-  //   {
-  //     callbacks: [callbackHandler],
-  //   },
-  // )
-  return res[0]
 }
 
-const generateSummary = async (document: Document): Promise<string | undefined> => {
-  try {
-    const splitDocumentParts: Document[] = await new RecursiveCharacterTextSplitter({
-      chunkSize: Number(RUNTIME().SUMMARY_DOCUMENT_CHUNK_SIZE),
-      chunkOverlap: Number(RUNTIME().SUMMARY_DOCUMENT_CHUNK_OVERLAP),
-    }).splitDocuments([document])
-    chainCounter = 1
-    return await summarizeMessages(splitDocumentParts)
-  } catch (error) {
-    console.log('Error generating summary for document: ', document.metadata.source, error)
+const summarizeMessages = async (documents: Document[]): Promise<string> => {
+  const chain = init()
+  let res = (await processInputs(documents, chain)).map((chainValue) => chainValue.text)
+  while (res.length > 1) {
+    documents = res.map((text) => ({ pageContent: text } as Document))
+    res = (await processInputs(documents, chain)).map((chainValue) => chainValue.text)
   }
+  return res[0]
 }
 
 async function processInputs(
   inputList: any[],
-  userTier: number,
   chain: StuffDocumentsChain | MapReduceDocumentsChain | RefineDocumentsChain,
 ): Promise<ChainValues[]> {
   try {
@@ -149,9 +115,7 @@ async function processInputs(
     const delayIncrement = 60
     const callbackHandler = new SummarizerCallbackHandler()
 
-    // Optimized batch size calculation
-    const batchSize = Math.min(10, userTier < 4 ? 50 : 10, inputList.length)
-    console.log(`Batch Size: ${batchSize}`)
+    const batchSize = Math.min(20, inputList.length)
 
     let results: any[] = []
 
@@ -161,7 +125,6 @@ async function processInputs(
       let retries = 0
       while (retries <= maxRetries) {
         try {
-          // const result = await chain.apply(batch)
           const result = await chain.call(
             {
               input_documents: batch,
@@ -170,30 +133,30 @@ async function processInputs(
               callbacks: [callbackHandler],
             },
           )
-          console.log(`Chain Result: ${result} for Input Batch: ${batch}`)
+          // console.log(`Chain Result: ${result} for Input Batch: ${batch}`)
           results.push(result)
-          break // Exit the retry loop once successful
-        } catch (rateLimitError) {
-          if (rateLimitError instanceof Error) {
+          break
+        } catch (chainError) {
+          if (chainError instanceof RateLimitError) {
             const delay = (retries + 1) * delayIncrement
-            console.log(`${rateLimitError}. Retrying in ${delay} seconds...`)
+            console.log(`${chainError}. SLeep for ${delay} seconds.`)
             await sleep(delay * 1000)
             retries += 1
 
             if (retries > maxRetries) {
-              console.error(`Max retries reached for batch starting at index ${i}. Skipping to next batch.`)
+              console.error(`Max retries reached for batch ${i}.`)
               break
             }
           } else {
-            throw rateLimitError
+            console.error(`An error occurred in processInputs: ${chainError}`)
+            throw chainError
           }
         }
       }
     }
-    console.log(`Final Results: `, results)
     return results
   } catch (error) {
-    console.error(`An error occurred in processInputs: ${error}`)
+    console.error(`Error processing input: ${error}`)
     return []
   }
 }

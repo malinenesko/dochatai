@@ -2,9 +2,7 @@ import { ChatInfo } from '../types'
 import { SearchType } from '../types/SearchType'
 import { DocHandler, DocumentProcessResult } from './dochandler/dochandler'
 import { MilvusClientService } from './vectordb/milvusClient'
-import { SearchPredict } from './search/searchPredict'
 import { SearchQAChainSimple } from './search/searchQAChainSimple'
-import { SearchRunnableSequence } from './search/searchRunnableSequence'
 import { RUNTIME } from '../constants'
 
 const COLLECTION_NAME = RUNTIME().MILVUS_COLLECTION_NAME
@@ -13,7 +11,6 @@ const processDocuments = async (
   chatInfo: ChatInfo,
   existingSummaries: DocumentProcessResult[],
 ): Promise<DocumentProcessResult[]> => {
-  console.log('Running docHandler...')
   return await DocHandler.processUploadedDocuments(chatInfo, COLLECTION_NAME, existingSummaries)
 }
 
@@ -45,12 +42,6 @@ const executeQuestion = async (
 ): Promise<ChatInfo> => {
   let searchFn = null
   switch (searchType) {
-    case SearchType.PREDICT:
-      searchFn = SearchPredict.search
-      break
-    case SearchType.SEQUENCE:
-      searchFn = SearchRunnableSequence.search
-      break
     case SearchType.QACHAINSIMPLE:
     case SearchType.QACHAIN:
     default:
